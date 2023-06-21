@@ -1,9 +1,12 @@
 import numpy as np
 import pandas as pd
 import ast
+import get_object
 
-credits_df = pd.read_csv("./data/credits.csv")
-movies_df = pd.read_csv("./data/movies.csv")
+
+
+credits_df = df = get_object.get_credits_csv_file()
+movies_df = get_object.get_movies_csv_file()
 
 pd.set_option("display.max_columns", None)
 pd.set_option("display.max_rows", None)
@@ -78,6 +81,39 @@ new_df["tags"] = new_df["tags"].apply(lambda x:" ".join(x) if isinstance(x, list
 new_df["tags"] = new_df["tags"].apply(lambda x:x.lower() if isinstance(x, str) else x)
 
 
+from sklearn.feature_extraction.text import CountVectorizer
+cv = CountVectorizer(max_features=5000, stop_words="english")
 
+from nltk.stem.porter import PorterStemmer
+ps = PorterStemmer()
 
-print(new_df.head())
+def stem(text):
+  y=[]
+  for i in text.split():
+    y.append(ps.stem(i))
+  return " ".join(y)
+
+# transformでnp.nanを扱えないので、から文字列で置き換える
+new_df["tags"] = new_df["tags"].fillna('')
+
+new_df["tags"] = new_df["tags"].apply(stem)
+
+vectors = cv.fit_transform(new_df["tags"]).toarray()
+
+# len(cv.get_feature_names_out())
+
+from sklearn.metrics.pairwise import cosine_similarity
+
+similarity = cosine_similarity(vectors)
+
+sorted(list(enumerate(similarity[0])), reverse=True, key=lambda x:x[1])[1:6]
+
+def recommend(movie):
+  movie_index = new_df[new_df["title"]==movie].index[0]
+  distances = similarity[movie_index]
+  movie_list = sorted(list(enumerate(distances)), reverse=True, key=lambda x:x[1])[1:6]
+  
+  for i in movie_list:
+    print(new_df.iloc[i[0]].title)
+
+recommend("Avatar")
